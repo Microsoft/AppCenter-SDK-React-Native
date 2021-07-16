@@ -13,27 +13,30 @@ import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.ReadableArray;
 import com.facebook.react.bridge.ReadableMap;
+import com.facebook.react.bridge.ReadableMapKeySetIterator;
+import com.facebook.react.bridge.ReadableType;
 import com.microsoft.appcenter.AppCenter;
 import com.microsoft.appcenter.crashes.Crashes;
 import com.microsoft.appcenter.crashes.WrapperSdkExceptionManager;
 import com.microsoft.appcenter.crashes.ingestion.models.ErrorAttachmentLog;
+import com.microsoft.appcenter.crashes.ingestion.models.Exception;
+import com.microsoft.appcenter.crashes.ingestion.models.StackFrame;
 import com.microsoft.appcenter.crashes.model.ErrorReport;
 import com.microsoft.appcenter.reactnative.shared.AppCenterReactNativeShared;
 import com.microsoft.appcenter.utils.async.AppCenterConsumer;
 
+import org.json.JSONException;
+
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 
 @SuppressWarnings("WeakerAccess")
 public class AppCenterReactNativeCrashesModule extends BaseJavaModule {
-
-    private static final String DATA_FIELD = "data";
-    private static final String TEXT_FIELD = "text";
-    private static final String FILE_NAME_FIELD = "fileName";
-    private static final String CONTENT_TYPE_FIELD = "contentType";
 
     /**
      * Constant for DO NOT SEND crash report.
@@ -135,6 +138,26 @@ public class AppCenterReactNativeCrashesModule extends BaseJavaModule {
     }
 
     @ReactMethod
+    public void trackException(ReadableMap error, ReadableMap properties, ReadableArray attachments, final Promise promise) {
+        Exception exceptionModel;
+        Map<String, String> convertedProperties = null;
+        Iterable<ErrorAttachmentLog> convertedAttachments = null;
+        try {
+            exceptionModel = AppCenterReactNativeCrashesUtils.toExceptionModel(error);
+            if (properties != null) {
+                convertedProperties = AppCenterReactNativeCrashesUtils.convertReadableMapToStringMap(properties);
+            }
+            if (attachments != null) {
+                convertedAttachments = AppCenterReactNativeCrashesUtils.toCustomErrorAttachments(attachments);
+            }
+        } catch (java.lang.Exception ex) {
+            return;
+        }
+        String errorReportId = WrapperSdkExceptionManager.trackException(exceptionModel, convertedProperties, convertedAttachments);
+        promise.resolve(errorReportId);
+    }
+
+    @ReactMethod
     public void generateTestCrash(final Promise promise) {
         new Thread(new Runnable() {
 
@@ -198,28 +221,6 @@ public class AppCenterReactNativeCrashesModule extends BaseJavaModule {
 
     @ReactMethod
     public void sendErrorAttachments(ReadableArray attachments, String errorId) {
-        try {
-            Collection<ErrorAttachmentLog> attachmentLogs = new LinkedList<>();
-            for (int i = 0; i < attachments.size(); i++) {
-                ReadableMap jsAttachment = attachments.getMap(i);
-                String fileName = null;
-                if (jsAttachment.hasKey(FILE_NAME_FIELD)) {
-                    fileName = jsAttachment.getString(FILE_NAME_FIELD);
-                }
-                if (jsAttachment.hasKey(TEXT_FIELD)) {
-                    String text = jsAttachment.getString(TEXT_FIELD);
-                    attachmentLogs.add(ErrorAttachmentLog.attachmentWithText(text, fileName));
-                } else {
-                    String encodedData = jsAttachment.getString(DATA_FIELD);
-                    byte[] data = Base64.decode(encodedData, Base64.DEFAULT);
-                    String contentType = jsAttachment.getString(CONTENT_TYPE_FIELD);
-                    attachmentLogs.add(ErrorAttachmentLog.attachmentWithBinary(data, fileName, contentType));
-                }
-            }
-            WrapperSdkExceptionManager.sendErrorAttachments(errorId, attachmentLogs);
-        } catch (Exception e) {
-            AppCenterReactNativeCrashesUtils.logError("Failed to get error attachment for report: " + errorId);
-            AppCenterReactNativeCrashesUtils.logError(Log.getStackTraceString(e));
-        }
+        WrapperSdkExceptionManager.sendErrorAttachments(errorId, AppCenterReactNativeCrashesUtils.toCustomErrorAttachments(attachments));
     }
 }

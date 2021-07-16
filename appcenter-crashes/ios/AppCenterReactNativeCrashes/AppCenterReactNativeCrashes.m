@@ -31,6 +31,7 @@
 
 #import <AppCenter/MSACAppCenter.h>
 #import <AppCenterCrashes/AppCenterCrashes.h>
+#import <AppCenterCrashes/MSACWrapperExceptionModel.h>
 #import <AppCenterReactNativeShared/AppCenterReactNativeShared.h>
 
 @implementation AppCenterReactNativeCrashes
@@ -122,6 +123,35 @@ RCT_EXPORT_METHOD(isDebuggerAttached : (RCTPromiseResolveBlock)resolve rejecter 
 
 RCT_EXPORT_METHOD(isEnabled : (RCTPromiseResolveBlock)resolve rejecter : (RCTPromiseRejectBlock)reject) {
   resolve(@([MSACCrashes isEnabled]));
+}
+
+RCT_EXPORT_METHOD(trackException :(NSDictionary *)exception
+                   withProperties:(nullable NSDictionary *)properties
+                      attachments:(nullable NSArray *)attachments
+                         resolver:(RCTPromiseResolveBlock)resolve 
+                         rejecter:(RCTPromiseRejectBlock)reject) {
+  NSString *type = exception[@"type"];
+  NSString *message = exception[@"message"];
+  NSArray<NSString *> *stackTrace = exception[@"stackTrace"];
+  NSString *wrapperSdkName = exception[@"wrapperSdkName"];
+  if (!type || [type isEqual: @""]) {
+    reject(@"appcenter_failure", @"Type value shouldn't be nil or empty.", nil);
+    return;
+  }
+  if (!message || [message isEqual: @""]) {
+    reject(@"appcenter_failure", @"Message value shouldn't be nil or empty.", nil);
+    return;
+  }
+  MSACWrapperExceptionModel *exceptionModel = [MSACWrapperExceptionModel new];
+  exceptionModel.type = type;
+  exceptionModel.message = message;
+  exceptionModel.wrapperSdkName = wrapperSdkName;
+  if (!stackTrace) {
+    stackTrace = [NSThread callStackSymbols];
+  }
+  exceptionModel.stackTrace = stackTrace.description;
+  [MSACCrashes trackException:exceptionModel withProperties:properties attachments:convertJSAttachmentsToNativeAttachments(attachments)];
+  resolve(nil);
 }
 
 RCT_EXPORT_METHOD(setEnabled : (BOOL)shouldEnable resolver : (RCTPromiseResolveBlock)resolve rejecter : (RCTPromiseRejectBlock)reject) {

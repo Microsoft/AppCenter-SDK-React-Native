@@ -53,22 +53,7 @@ Crashes.setListener({
 
   getErrorAttachments(report) {
     console.log(`Get error attachments for report with id: ${report.id}'`);
-    return (async () => {
-      const attachments = [];
-      const [textAttachment, binaryAttachment, binaryName, binaryType] = await Promise.all([
-        AttachmentsProvider.getTextAttachment(),
-        AttachmentsProvider.getBinaryAttachment(),
-        AttachmentsProvider.getBinaryName(),
-        AttachmentsProvider.getBinaryType(),
-      ]);
-      if (textAttachment !== null) {
-        attachments.push(ErrorAttachmentLog.attachmentWithText(textAttachment, 'hello.txt'));
-      }
-      if (binaryAttachment !== null && binaryName !== null && binaryType !== null) {
-        attachments.push(ErrorAttachmentLog.attachmentWithBinary(binaryAttachment, binaryName, binaryType));
-      }
-      return attachments;
-    })();
+    return AttachmentsProvider.getErrorAttachments();
   },
 
   onBeforeSending() {

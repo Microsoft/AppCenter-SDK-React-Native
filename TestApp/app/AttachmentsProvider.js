@@ -3,6 +3,7 @@
 
 import AsyncStorage from '@react-native-community/async-storage';
 import RNFS from 'react-native-fs';
+import { ErrorAttachmentLog } from 'appcenter-crashes';
 
 const TEXT_ATTACHMENT_KEY = 'TEXT_ATTACHMENT_KEY';
 const BINARY_FILENAME_KEY = 'BINARY_FILENAME_KEY';
@@ -26,6 +27,25 @@ export default class AttachmentsProvider {
     } else {
       await AsyncStorage.removeItem(key);
     }
+  }
+
+  static async getErrorAttachments() {
+    return (async () => {
+      const attachments = [];
+      const [textAttachment, binaryAttachment, binaryName, binaryType] = await Promise.all([
+        AttachmentsProvider.getTextAttachment(),
+        AttachmentsProvider.getBinaryAttachment(),
+        AttachmentsProvider.getBinaryName(),
+        AttachmentsProvider.getBinaryType(),
+      ]);
+      if (textAttachment !== null) {
+        attachments.push(ErrorAttachmentLog.attachmentWithText(textAttachment, 'hello.txt'));
+      }
+      if (binaryAttachment !== null && binaryName !== null && binaryType !== null) {
+        attachments.push(ErrorAttachmentLog.attachmentWithBinary(binaryAttachment, binaryName, binaryType));
+      }
+      return attachments;
+    })();
   }
 
   static async saveTextAttachment(value) {

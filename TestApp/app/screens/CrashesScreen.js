@@ -5,7 +5,7 @@ import React, { Component } from 'react';
 import { Image, View, Text, TextInput, Switch, SectionList, TouchableOpacity, NativeModules } from 'react-native';
 import ImagePicker from 'react-native-image-picker';
 
-import Crashes from 'appcenter-crashes';
+import Crashes, { ExceptionModel } from 'appcenter-crashes';
 
 import AttachmentsProvider from '../AttachmentsProvider';
 import SharedStyles from '../SharedStyles';
@@ -31,7 +31,8 @@ export default class CrashesScreen extends Component {
     memoryWarning: '',
     textAttachment: '',
     binaryAttachment: '',
-    userId: ''
+    userId: '',
+    hasTrackErrorProperties: false
   }
 
   async componentDidMount() {
@@ -70,6 +71,16 @@ export default class CrashesScreen extends Component {
   jsCrash() {
     const foo = new FooClass();
     foo.method1();
+  }
+
+  async sendTrackError(hasProperties){
+    try {
+      throw new Error("Custom error");
+    } catch(error) {
+      let properties = hasProperties ?  { 'key' : 'value' } : null;
+      let attachments = await AttachmentsProvider.getErrorAttachments();
+      Crashes.trackError(ExceptionModel.createFromError(error), properties, attachments);
+    }
   }
 
   async nativeCrash() {
@@ -169,6 +180,30 @@ export default class CrashesScreen extends Component {
               renderItem: actionRenderItem
             },
             {
+              title: 'Track error properties settings',
+              data: [
+                {
+                  title: 'Track with properties', 
+                  value: 'hasTrackErrorProperties',
+                  toggle: () => {
+                    const hasTrackErrorProperties = !this.state.hasTrackErrorProperties;
+                    this.setState({ hasTrackErrorProperties });
+                  }
+                },
+              ],
+              renderItem: switchRenderItem
+            },
+            {
+              title: 'Track error settings',
+              data: [
+                {
+                 title: 'Track error',
+                 action: () => this.sendTrackError(this.state.hasTrackErrorProperties)
+                },
+              ],
+              renderItem: actionRenderItem
+            },
+            {
               title: 'Miscellaneous',
               data: [
                 { title: 'Last session status', value: 'lastSessionStatus' },
@@ -184,7 +219,7 @@ export default class CrashesScreen extends Component {
                 }
               ],
               renderItem: valueRenderItem
-            }
+            },
           ]}
         />
       </View>
